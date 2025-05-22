@@ -24,6 +24,8 @@ namespace TargetClearCS
             int MaxTarget;
             int MaxNumber;
             bool TrainingGame;
+            string difficultyInput = "";
+
             Console.Write("Enter y to play the training game, anything else to play a random game: ");
             string Choice = Console.ReadLine().ToLower();
             Console.WriteLine();
@@ -36,14 +38,14 @@ namespace TargetClearCS
             }
             else
             {
+                Console.WriteLine("Select difficulty: \nStandard\nEasy\nMedium\nHard");
+                difficultyInput = Console.ReadLine().ToLower();
+
                 MaxNumber = 10;
                 MaxTarget = 50;
                 TrainingGame = false;
                 Targets = CreateTargets(MaxNumberOfTargets, MaxTarget);
             }
-
-            Console.WriteLine("Select difficulty: \nStandard\nEasy\nMedium\nHard");
-            string difficultyInput = Console.ReadLine().ToLower();
 
             NumbersAllowed = FillNumbers(LargeNumbers, NumbersAllowed, TrainingGame, MaxNumber, difficultyInput);
             PlayGame(LargeNumbers, Targets, NumbersAllowed, TrainingGame, MaxTarget, MaxNumber, difficultyInput);
@@ -61,24 +63,44 @@ namespace TargetClearCS
                 DisplayState(Targets, NumbersAllowed, Score);
                 Console.Write("Enter an expression: ");
                 UserInput = Console.ReadLine();
-                if (UserInput == "QUIT")
+
+                bool validNonNum = false;
+
+                switch (UserInput.ToUpper())
                 {
-                    GameOver = true;
-                    break;
+                    case "QUIT":
+                        GameOver = true;
+                        validNonNum = true;
+                        break;
+
+                    case "MOVE":
+                        MoveTargetsBack(Targets, ref Score);
+                        validNonNum = true;
+                        break;
                 }
+
                 Console.WriteLine();
-                if (CheckIfUserInputValid(UserInput))
+                if (validNonNum != true)
                 {
-                    UserInputInRPN = ConvertToRPN(UserInput);
-                    if (CheckNumbersUsedAreAllInNumbersAllowed(NumbersAllowed, UserInputInRPN, MaxNumber))
+                    if (CheckIfUserInputValid(UserInput))
                     {
-                        if (CheckIfUserInputEvaluationIsATarget(Targets, UserInputInRPN, ref Score))
+                        UserInputInRPN = ConvertToRPN(UserInput);
+                        if (CheckNumbersUsedAreAllInNumbersAllowed(NumbersAllowed, UserInputInRPN, MaxNumber))
                         {
-                            RemoveNumbersUsed(UserInput, MaxNumber, NumbersAllowed);
-                            NumbersAllowed = FillNumbers(LargeNumbers, NumbersAllowed, TrainingGame, MaxNumber, UserDifficulty);
+                            if (CheckIfUserInputEvaluationIsATarget(Targets, UserInputInRPN, ref Score))
+                            {
+                                RemoveNumbersUsed(UserInput, MaxNumber, NumbersAllowed);
+                                NumbersAllowed = FillNumbers(LargeNumbers, NumbersAllowed, TrainingGame, MaxNumber, UserDifficulty);
+                            }
                         }
                     }
                 }
+
+                if (validNonNum == true)
+                {
+                    Score++;
+                }
+
                 Score--;
                 if (Targets[0] != -1)
                 {
@@ -93,10 +115,21 @@ namespace TargetClearCS
             DisplayScore(Score);
         }
 
+        static void MoveTargetsBack(List<int> Targets, ref int Score)
+        {
+            for (int index = Targets.Count - 1; index > 0; index--)
+            {
+                Targets[index] = Targets[index - 1];
+            }
+            Targets[0] = -1;
+            Score -= 2;
+        }
+
         static bool CheckIfUserInputEvaluationIsATarget(List<int> Targets, List<string> UserInputInRPN, ref int Score)
         {
             int OperatorCount = 0;
-            int UserInputEvaluation = EvaluateRPN(UserInputInRPN);
+            int UserInputEvaluation = EvaluateRPN(UserInputInRPN, ref OperatorCount);
+            Console.WriteLine($"{OperatorCount}");
             bool UserInputEvaluationIsATarget = false;
             if (UserInputEvaluation != -1)
             {
@@ -105,6 +138,8 @@ namespace TargetClearCS
                     if (Targets[Count] == UserInputEvaluation)
                     {
                         Score += 2;
+                        Console.WriteLine($"Score {Score} + {2 * OperatorCount}");
+                        Score = Score + (2 * OperatorCount); //Bonus points
                         Targets[Count] = -1;
                         UserInputEvaluationIsATarget = true;
                     }
@@ -278,7 +313,7 @@ namespace TargetClearCS
             return UserInputInRPN;
         }
 
-        static int EvaluateRPN(List<string> UserInputInRPN)
+        static int EvaluateRPN(List<string> UserInputInRPN, ref int OperatorCount)
         {
             List<string> S = new List<string>();
             while (UserInputInRPN.Count > 0)
@@ -286,6 +321,7 @@ namespace TargetClearCS
                 while (!"+-*/".Contains(UserInputInRPN[0]))
                 {
                     S.Add(UserInputInRPN[0]);
+                    OperatorCount++;
                     UserInputInRPN.RemoveAt(0);
                 }
                 double Num2 = Convert.ToDouble(S[S.Count - 1]);
@@ -298,18 +334,22 @@ namespace TargetClearCS
                     case "+":
                         Result = Num1 + Num2;
                         break;
+
                     case "-":
                         Result = Num1 - Num2;
                         break;
+
                     case "*":
                         Result = Num1 * Num2;
                         break;
+
                     case "/":
                         Result = Num1 / Num2;
                         break;
                 }
                 UserInputInRPN.RemoveAt(0);
                 S.Add(Convert.ToString(Result));
+
             }
             if (Convert.ToDouble(S[0]) - Math.Truncate(Convert.ToDouble(S[0])) == 0.0)
             {
