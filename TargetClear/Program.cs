@@ -14,6 +14,7 @@ namespace TargetClearCS
     internal class Program
     {
         static Random RGen = new Random();
+        static Random ChallengeProbability = new Random();
 
         static void Main(string[] args)
         {
@@ -58,25 +59,46 @@ namespace TargetClearCS
             bool GameOver = false;
             string UserInput;
             List<string> UserInputInRPN;
+            char[] challengeText = "CHALLENGE ROUND".ToCharArray();
             while (!GameOver)
             {
+                bool challengeRound = false;
+                int challengeValue = ChallengeProbability.Next(0,5);
+
+                if (challengeValue == 1)
+                {
+                    challengeRound = true;
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    for (int CR_Index = 0; CR_Index < challengeText.Length; CR_Index++)
+                    {
+                        Task.Delay(50).Wait();
+                        Console.Write($"{challengeText[CR_Index]}");
+                    }
+                    Console.WriteLine();
+                    Console.ForegroundColor = ConsoleColor.White;
+                    Task.Delay(1000).Wait();
+
+                }
+
                 DisplayState(Targets, NumbersAllowed, Score);
                 Console.Write("Enter an expression: ");
                 UserInput = Console.ReadLine();
 
                 bool validNonNum = false;
 
-                switch (UserInput.ToUpper())
+                if (UserInput.ToUpper() == "QUIT")
                 {
-                    case "QUIT":
-                        GameOver = true;
-                        validNonNum = true;
-                        break;
-
-                    case "MOVE":
-                        MoveTargetsBack(Targets, ref Score);
-                        validNonNum = true;
-                        break;
+                    GameOver = true;
+                    validNonNum = true;
+                }
+                else if (UserInput.ToUpper() == "MOVE")
+                {
+                    MoveTargetsBack(Targets, ref Score);
+                    validNonNum = true;
+                }
+                else
+                {
+                    //Intentionally blank
                 }
 
                 Console.WriteLine();
@@ -87,7 +109,7 @@ namespace TargetClearCS
                         UserInputInRPN = ConvertToRPN(UserInput);
                         if (CheckNumbersUsedAreAllInNumbersAllowed(NumbersAllowed, UserInputInRPN, MaxNumber))
                         {
-                            if (CheckIfUserInputEvaluationIsATarget(Targets, UserInputInRPN, ref Score))
+                            if (CheckIfUserInputEvaluationIsATarget(Targets, UserInputInRPN, ref Score, challengeRound, NumbersAllowed))
                             {
                                 RemoveNumbersUsed(UserInput, MaxNumber, NumbersAllowed);
                                 NumbersAllowed = FillNumbers(LargeNumbers, NumbersAllowed, TrainingGame, MaxNumber, UserDifficulty);
@@ -106,7 +128,7 @@ namespace TargetClearCS
                 {
                     GameOver = true;
                 }
-                else
+                else if (!validNonNum) //skips updating if MOVE is entered
                 {
                     UpdateTargets(Targets, TrainingGame, MaxTarget);
                 }
@@ -122,10 +144,12 @@ namespace TargetClearCS
                 Targets[index] = Targets[index - 1];
             }
             Targets[0] = -1;
+
             Score -= 2;
+
         }
 
-        static bool CheckIfUserInputEvaluationIsATarget(List<int> Targets, List<string> UserInputInRPN, ref int Score)
+        static bool CheckIfUserInputEvaluationIsATarget(List<int> Targets, List<string> UserInputInRPN, ref int Score, bool ChallengeMode, List<int> NumbersAllowed)
         {
             int OperatorCount = 0;
             int UserInputEvaluation = EvaluateRPN(UserInputInRPN, ref OperatorCount);
@@ -149,6 +173,27 @@ namespace TargetClearCS
             if (UserInputEvaluationIsATarget == false)
             {
                 Console.WriteLine("Input does not evaluate to a target.");
+            }
+
+            //Challenge bonus points
+
+            if (ChallengeMode == true)
+            {
+                if (OperatorCount == NumbersAllowed.Count)
+                {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine("BONUS 10 POINTS!");
+                    Console.ForegroundColor = ConsoleColor.White;
+
+                    Score += 10;
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("LOSS OF 5 POINTS!");
+                    Console.ForegroundColor = ConsoleColor.White;
+                    Score -= 5;
+                }
             }
             return UserInputEvaluationIsATarget;
         }
@@ -320,6 +365,7 @@ namespace TargetClearCS
             {
                 while (!"+-*/".Contains(UserInputInRPN[0]))
                 {
+                    Console.WriteLine($"N: {UserInputInRPN[0]}");
                     S.Add(UserInputInRPN[0]);
                     OperatorCount++;
                     UserInputInRPN.RemoveAt(0);
